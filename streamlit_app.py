@@ -1,70 +1,69 @@
 import streamlit as st
+import openai
 
 # Set page title and icon
 st.set_page_config(page_title="Coopleo", page_icon="💝")
-
-# Password protection for admin
-def check_password(password):
-    """Returns `True` if the password is correct."""
-    return password == st.secrets["PASSWORD"]
-
-# Initialize admin status in session state
-if "is_admin" not in st.session_state:
-    st.session_state.is_admin = False
-
-# Login function
-def login():
-
-    with st.form("login_form"):
-        password = st.text_input("Password", type="password")
-        submit_button = st.form_submit_button("Login as Admin")
-        
-        if submit_button:
-            if check_password(password):
-                st.session_state.is_admin = True
-                st.success("Login successful!")
-                st.rerun()
-            else:
-                st.error("Incorrect password. Please try again.")
-
-# Logout function
-def logout():
-    st.session_state.is_admin = False
-    st.success("You have been logged out.")
-    st.rerun()
-
 st.logo('img/logo_coopleo.png')
 
-# Define your pages
-chatbot_page = st.Page("chatbot.py", title="Assistant", icon="🤖")
-config_page = st.Page("config.py", title="Configuration", icon="⚙️")
-admin_page = st.Page("admin.py", title="Admin", icon="📄")
+avatar = {"assistant": "🤖", "user": "🐱"}
+model = 'gpt-4o-mini'
+# openai.api_key = st.secrets['OPENAI_API_KEY']
 
-# Login/Logout pages
-login_page = st.Page(login, title="Log in", icon="🔑")
-logout_page = st.Page(logout, title="Log out", icon="🚪")
+# Functions
+def new_chat():
+   st.session_state.convo = []
 
-# Create the navigation based on admin status
-if not st.session_state.is_admin:
-    # Non-admin user
-    pg = st.navigation(
-        {
-            "Main": [chatbot_page],
-            "Admin": [login_page],
-        },
-        position="sidebar",
-        expanded=True
-    )
-else:
-    # Admin user
-    pg = st.navigation(
-        {
-            "Main": [chatbot_page],
-            "Admin": [admin_page, config_page],
-            "Account": [logout_page],
-        },
-        position="sidebar",
-        expanded=True
-    )
+def chat_stream(messages,model='gpt-4o-mini'):
+  # Generate a response from the ChatGPT model
+  completion = openai.chat.completions.create(
+        model=model,
+        messages= messages,
+        stream = True
+  )
+  report = []
+  res_box = st.empty()
+  # Looping over the response
+  for resp in completion:
+      if resp.choices[0].finish_reason is None:
+          # join method to concatenate the elements of the list 
+          # into a single string, then strip out any empty strings
+          report.append(resp.choices[0].delta.content)
+          result = ''.join(report).strip()
+          result = result.replace('\n', '')        
+          res_box.write(result) 
+  return result
 
-pg.run()
+
+# Initialization
+if 'convo' not in st.session_state:
+    st.session_state.convo = []
+
+if st.button('Nouvelle conversation 💝'):
+   new_chat()
+
+
+if not st.session_state['convo']:
+    st.session_state['convo'] = [{'role': 'system', 'content': open('data/system_prompt.txt',encoding='utf-8').read()},
+                                 {'role': 'assistant', 'content': open('data/welcome_message.txt',encoding='utf-8').read()}]
+   
+# Display the response in the Streamlit app
+for line in st.session_state.convo:
+    # st.chat_message(line.role,avatar=avatar[line.role]).write(line.content)
+    if line['role'] == 'user':
+      st.chat_message('user',avatar=avatar['user']).write(line['content'])
+    elif line['role'] == 'assistant':
+      st.chat_message('assistant',avatar=avatar['assistant']).write(line['content'])
+
+# Create a text input widget in the Streamlit app
+prompt = st.chat_input('Entrez votre message ici...')
+
+if prompt:
+  # Append the text input to the conversation
+  with st.chat_message('user',avatar=avatar['user']):
+    st.write(prompt)
+  st.session_state.convo.append({'role': 'user', 'content': prompt })
+  # Query the chatbot with the complete conversation
+  with st.chat_message('assistant',avatar=avatar['assistant']):
+     result = chat_stream(st.session_state.convo,model)
+  # Add response to the conversation
+  st.session_state.convo.append({'role':'assistant', 'content':result})
