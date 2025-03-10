@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+import openai, re, csv
 
 # Set page title and icon
 st.set_page_config(page_title="Coopleo", page_icon="💝")
@@ -33,6 +33,10 @@ def chat_stream(messages,model='gpt-4o-mini'):
           res_box.write(result) 
   return result
 
+def store_email(email):
+  with open('data/emails.csv', 'a', newline='') as file:
+      writer = csv.writer(file)
+      writer.writerow([email])
 
 # Initialization
 if 'convo' not in st.session_state:
@@ -62,6 +66,14 @@ if prompt:
   with st.chat_message('user',avatar=avatar['user']):
     st.write(prompt)
   st.session_state.convo.append({'role': 'user', 'content': prompt })
+
+  # --- Email detection and storage ---
+  email_pattern = r'\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b'
+  email_match = re.search(email_pattern, prompt)
+  if email_match:
+      store_email(email_match.group(0))
+  # -----------------------------------
+
   # Query the chatbot with the complete conversation
   with st.chat_message('assistant',avatar=avatar['assistant']):
      result = chat_stream(st.session_state.convo,model)
