@@ -1,5 +1,11 @@
 import streamlit as st
 import openai, re, csv
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+
+# Connect to the Google Sheet
+conn = st.connection("gsheets", type=GSheetsConnection)
+
 
 # Set page title and icon
 st.set_page_config(page_title="Coopleo", page_icon="💝")
@@ -34,9 +40,12 @@ def chat_stream(messages,model='gpt-4o-mini'):
   return result
 
 def store_email(email):
-  with open('data/emails.csv', 'a', newline='') as file:
-      writer = csv.writer(file)
-      writer.writerow([email])
+  # Append the email to the Google Sheet
+  df = conn.read(ttl=5)
+  df = pd.concat([df, pd.DataFrame({"emails": [email]})], ignore_index=True)
+  conn.update(data=df)
+  st.toast(f"Email {email} enregistré avec succès! 📧", icon="📩")
+
 
 # Initialization
 if 'convo' not in st.session_state:
