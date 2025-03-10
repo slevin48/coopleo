@@ -1,5 +1,10 @@
 import streamlit as st
-import openai
+import openai, re, csv
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+
+# Connect to the Google Sheet
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Set page title and icon
 st.set_page_config(page_title="Coopleo", page_icon="💝")
@@ -33,6 +38,12 @@ def chat_stream(messages,model='gpt-4o-mini'):
           res_box.write(result) 
   return result
 
+def store_email(email):
+  # Append the email to the Google Sheet
+  df = conn.read(ttl=5)
+  df = pd.concat([df, pd.DataFrame({"emails": [email]})], ignore_index=True)
+  conn.update(data=df)
+  st.toast(f"Email {email} enregistré avec succès! 📧", icon="📩")
 
 # Initialization
 if 'convo' not in st.session_state:
@@ -62,6 +73,14 @@ if prompt:
   with st.chat_message('user',avatar=avatar['user']):
     st.write(prompt)
   st.session_state.convo.append({'role': 'user', 'content': prompt })
+
+  # --- Email detection and storage ---
+  email_pattern = r'\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b'
+  email_match = re.search(email_pattern, prompt)
+  if email_match:
+      store_email(email_match.group(0))
+  # -----------------------------------
+
   # Query the chatbot with the complete conversation
   with st.chat_message('assistant',avatar=avatar['assistant']):
      result = chat_stream(st.session_state.convo,model)
