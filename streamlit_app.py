@@ -6,6 +6,7 @@ import pandas as pd
 # Connect to the Google Sheet
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+
 # Set page title and icon
 st.set_page_config(page_title="Coopleo", page_icon="💝")
 st.logo('img/logo_coopleo.png')
@@ -44,6 +45,7 @@ def store_email(email):
   df = pd.concat([df, pd.DataFrame({"emails": [email]})], ignore_index=True)
   conn.update(data=df)
   st.toast(f"Email {email} enregistré avec succès! 📧", icon="📩")
+
 
 # Initialization
 if 'convo' not in st.session_state:
